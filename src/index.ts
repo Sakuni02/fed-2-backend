@@ -12,6 +12,7 @@ import { paymentsRouter } from "./api/payment";
 import bodyParser from "body-parser";
 import { handleWebhook } from "./application/payment";
 import colorRouter from "./api/color";
+import { cartRouter } from "./api/cart";
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/api/reviews", reviewRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/colors", colorRouter);
+app.use("/api/cart", cartRouter);
 
 app.use(globalErrorHandlingMiddleware);
 
