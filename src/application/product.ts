@@ -11,6 +11,7 @@ import { randomUUID } from "crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import S3 from "../infrastructure/s3";
+import stripe from "../infrastructure/stripe";
 
 const getAllProducts = async (
   req: Request,
@@ -70,12 +71,29 @@ const createProduct = async (
   next: NextFunction
 ) => {
   try {
+
+    const data = req.body;
+
     const result = CreateProductDTO.safeParse(req.body);
     if (!result.success) {
       throw new ValidationError(result.error.message);
     }
 
-    await Product.create(result.data);
+    const stripeProduct = await stripe.products.create({
+      name: data.name,
+      description: data.description || "",
+      default_price_data: {
+        currency: "usd",
+        unit_amount: data.price * 100,
+      },
+      images: data.images,
+    });
+
+    const savedProduct = await Product.create({
+      ...result.data,
+      stripePriceId: stripeProduct.default_price,
+    });
+
     res.status(201).send();
   } catch (error) {
     next(error);
@@ -88,7 +106,11 @@ const getProductById = async (
   next: NextFunction
 ) => {
   try {
-    const product = await Product.findById(req.params.id).populate("reviews").populate("colorId");
+    const product = await Product.findById(req.params.id)
+      .populate("categoryId", "name slug")
+      .populate("colorId")
+      .populate("reviews");
+
     if (!product) {
       throw new NotFoundError("Product not found");
     }
@@ -138,27 +160,35 @@ const uploadProductImage = async (
   next: NextFunction
 ) => {
   try {
-    const body = req.body;
-    const { fileType } = body;
+    const { fileTypes } = req.body;
 
-    const id = randomUUID();
+    if (!Array.isArray(fileTypes) || fileTypes.length === 0) {
+      return res.status(400).json({ message: "fileTypes must be a non-empty array" });
+    }
 
-    const url = await getSignedUrl(
-      S3,
-      new PutObjectCommand({
-        Bucket: process.env.CLOUDFLARE_BUCKET_NAME,
-        Key: id,
-        ContentType: fileType,
-      }),
-      {
-        expiresIn: 60,
-      }
+    const uploads = await Promise.all(
+      fileTypes.map(async (fileType) => {
+        const id = randomUUID();
+
+        const url = await getSignedUrl(
+          S3,
+          new PutObjectCommand({
+            Bucket: process.env.CLOUDFLARE_BUCKET_NAME,
+            Key: id,
+            ContentType: fileType,
+          }),
+          {
+            expiresIn: 60,
+          }
+        );
+        return {
+          url,
+          publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${id}`,
+        };
+
+      })
     );
-
-    res.status(200).json({
-      url,
-      publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${id}`,
-    });
+    res.status(200).json({ uploads });
   } catch (error) {
     next(error);
   }
@@ -177,7 +207,7 @@ const getShopProducts = async (
       categorySlug = categorySlugRaw.toLowerCase();
     }
 
-    const { color, sort, page = "1", limit = "24" } = req.query;
+    const { color, sort, page = "1", limit = "24", exclude } = req.query;
 
     const pageNum = Math.max(parseInt(page as string, 10) || 1, 1);
     const perPage = Math.min(Math.max(parseInt(limit as string, 10) || 24, 1), 100);
@@ -185,7 +215,9 @@ const getShopProducts = async (
 
     // Build filter
     const filter: any = {};
-
+    if (exclude && typeof exclude === "string") {
+      filter._id = { $ne: exclude };
+    }
 
     // Fix: find category by slug → get _id
     if (categorySlug) {

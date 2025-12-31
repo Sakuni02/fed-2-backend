@@ -18,14 +18,20 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  image: {
-    type: String,
+  images: {
+    type: [String],
     required: true,
   },
   stock: {
     type: Number,
     required: true,
   },
+
+  features: {
+    type: [String],
+    default: [],
+  },
+
   reviews: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: "Review",
