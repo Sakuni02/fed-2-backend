@@ -13,8 +13,6 @@ out/
 *.tsbuildinfo
 
 # Environment variables
-.env
-.env.local
 .env.*.local
 
 # Logs
@@ -28,7 +26,6 @@ logs/
 .tmp/
 
 # IDE and editor settings
-.vscode/
 .idea/
 *.suo
 *.ntvs*
@@ -52,3 +49,4 @@ nodemon.json
 # Misc
 *.bak
 *.local
+config.bat

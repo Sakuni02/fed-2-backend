@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/index.ts",
-    "build": "npm install && tsc",
-    "start": "node ./dist/index.js",
+    "dev": "node init && nodemon src/index.ts",
+    "build": "node init && npm install && tsc",
+    "start": "node init && node ./dist/index.js",
     "seed": "ts-node src/infrastructure/db/seed.ts"
   },
   "author": "",
@@ -20,6 +20,7 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "mongoose": "^8.17.1",
+    "node-fetch": "^3.3.2",
     "stripe": "^18.4.0",
     "zod": "^4.0.10"
   },
